@@ -369,6 +369,31 @@ select option{background:#1C2128;}
 
       <!-- ICI Index -->
       <div id="md-tab-ici" style="display:none">
+
+        <!-- PASTE & IMPORT -->
+        <div class="card" style="margin-bottom:14px;border:1px solid var(--accent);background:rgba(232,160,32,.06)">
+          <div class="card-header">
+            <span class="card-title">📋 Paste &amp; Import ICI Values</span>
+            <span style="font-size:11px;color:var(--text3)">Copy from email/report → paste below → click Import</span>
+          </div>
+          <div class="card-body">
+            <div class="form-group" style="margin-bottom:10px">
+              <label style="font-weight:600">Paste email or report text here</label>
+              <textarea id="ici-paste-box" rows="6"
+                placeholder="Paste the ICI report email or table here. For example:&#10;&#10;ICI 1 (6500 GAR): 122.10&#10;ICI 2 (5800 GAR): 94.35&#10;ICI 3 (5000 GAR): 80.74&#10;ICI 4 (4200 GAR): 63.56&#10;ICI 5 (3400 GAR): 37.78&#10;Date: 08 May 2026&#10;&#10;Works with most email/report formats automatically."
+                style="width:100%;resize:vertical;font-family:monospace;font-size:12px;line-height:1.6;box-sizing:border-box"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn btn-primary" onclick="iciPasteImport()" style="flex:1">
+                ⚡ Parse &amp; Import Values
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ici-paste-box').value=''">
+                Clear
+              </button>
+            </div>
+            <div id="ici-parse-result" style="margin-top:10px;display:none"></div>
+          </div>
+        </div>
         <div class="two-col" style="align-items:start;gap:16px">
           <div class="card">
             <div class="card-header"><span class="card-title">Add / Update ICI Values</span></div>
@@ -642,16 +667,11 @@ select option{background:#1C2128;}
         <div class="form-group"><label>Discharge Port</label><input type="text" id="t-disch-port" placeholder="Krishnapatnam, India"></div>
         <div class="form-group"><label>Vessel Name</label><input type="text" id="t-vessel" placeholder="MV Pacific Star"></div>
         <div class="form-group"><label>Origin Country</label>
-          <select id="t-mine-country">
-            <option value="">— Select Origin —</option>
-            <option value="Indonesia">🇮🇩 Indonesia</option>
-            <option value="South Africa">🇿🇦 South Africa</option>
-            <option value="Australia">🇦🇺 Australia</option>
-            <option value="USA">🇺🇸 USA</option>
-            <option value="Colombia">🇨🇴 Colombia</option>
-            <option value="Tanzania">🇹🇿 Tanzania</option>
-            <option value="Mozambique">🇲🇿 Mozambique</option>
-          </select>
+          <select id="t-mine-country"><option value="">— Select Origin —</option>
+            <option value="Indonesia">🇮🇩 Indonesia</option><option value="South Africa">🇿🇦 South Africa</option>
+            <option value="Australia">🇦🇺 Australia</option><option value="USA">🇺🇸 USA</option>
+            <option value="Colombia">🇨🇴 Colombia</option><option value="Tanzania">🇹🇿 Tanzania</option>
+            <option value="Mozambique">🇲🇿 Mozambique</option></select>
         </div>
         <div class="form-group"><label>Laycan</label><input type="text" id="t-laycan" placeholder="20–25 Apr 2026"></div>
         <div class="form-group"><label>Laycan Start Date <span style="color:var(--text3);font-size:10px">for QP calc</span></label><input type="date" id="t-laycan-start" onchange="updateQPDates()" style="border-color:var(--purple)"></div>
@@ -1079,7 +1099,6 @@ select option{background:#1C2128;}
 <div id="toast"></div>
 
 <script>
-
 const SUPA_URL = 'https://parqgdxibmlzeqlqbdyb.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhcnFnZHhpYm1semVxbHFiZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzY3MjIsImV4cCI6MjA5NDMxMjcyMn0.WsDhCTcn58by9Pa7tYNTBjS_LAHdACzOB4hAgTiHd74';
 const { createClient } = supabase;
@@ -1449,8 +1468,205 @@ function renderDashboard() {
         <td class="mono">${fmt(t.sellPrice)}</td>
         <td class="mono ${cc(p.netPnL)}">${sign(p.netPnL)}${fmt(p.netPnL)}</td>
         <td>${badgeStatus(t.status)}</td>
+        <td style="min-width:160px;max-width:220px">
+          <textarea onchange="saveRemark('${t.id}',this.value)" 
+            style="width:100%;min-height:36px;resize:vertical;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;color:var(--text);padding:4px 6px;font-family:inherit"
+            placeholder="Add remark...">${t.remarks||''}</textarea>
+        </td>
       </tr>`;
     }).join('')}</tbody></table>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// REMARKS — save to trade object and Supabase
+// ═══════════════════════════════════════════════════════════════
+async function saveRemark(tradeId, remark) {
+  const t = trades.find(x => x.id === tradeId);
+  if(!t) return;
+  t.remarks = remark;
+  await upsertTrade(t);
+  showToast('Remark saved','green');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// TRADE DOCUMENTS — Supabase Storage
+// Bucket: trade-docs (create in Supabase dashboard as PUBLIC)
+// Structure: trade-docs/{folder}/{ref}.{ext}
+// Folders: contracts, certificates, ltc, invoices
+// ═══════════════════════════════════════════════════════════════
+const DOC_BUCKET  = 'trade-docs';
+const DOC_FOLDERS = [
+  {key:'contracts',    label:'📋 Contract',    icon:'📋'},
+  {key:'certificates', label:'🏆 Certificate', icon:'🏆'},
+  {key:'ltc',         label:'📨 LTC',         icon:'📨'},
+  {key:'invoices',    label:'🧾 Invoice',      icon:'🧾'},
+];
+
+function docUrl(folder, ref, ext) {
+  return `${SUPA_URL}/storage/v1/object/public/${DOC_BUCKET}/${folder}/${encodeURIComponent(ref)}.${ext}`;
+}
+
+function docUploadUrl(folder, ref, ext) {
+  return `${SUPA_URL}/storage/v1/object/${DOC_BUCKET}/${folder}/${encodeURIComponent(ref)}.${ext||'pdf'}`;
+}
+
+// Build the docs cell for trade register - shows all 4 folder buttons
+function tradeDocsCell(t) {
+  if(!t.ref) return '—';
+  var html2 = '';
+  DOC_FOLDERS.forEach(function(f) {
+    var ext = (t.docs && t.docs[f.key]) ? t.docs[f.key] : 'pdf';
+    var vUrl = docUrl(f.key, t.ref, ext);
+    html2 += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">';
+    html2 += '<a href="'+vUrl+'" target="_blank" ';
+    html2 += 'onclick="return checkDocSync(event,this.href)" ';
+    html2 += 'style="font-size:11px;padding:2px 6px;border-radius:3px;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);text-decoration:none;white-space:nowrap">';
+    html2 += f.icon+' View</a>';
+    html2 += '<label style="font-size:11px;padding:2px 6px;border-radius:3px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);cursor:pointer;white-space:nowrap">';
+    html2 += '⬆ Upload';
+    html2 += '<input type="file" accept=".pdf,.doc,.docx,.xlsx,.jpg,.png" style="display:none" ';
+    html2 += 'data-folder="'+f.key+'" data-ref="'+escapeHtml(t.ref)+'" data-id="'+t.id+'"';
+    html2 += ' onchange="uploadDocFromInput(this)">';
+    html2 += '</label></div>';
+  });
+  return html2;
+}
+
+function checkDocSync(e, url) {
+  // Let it open - server will show 404 if missing
+  return true;
+}
+
+async function uploadDocFromInput(input) {
+  var folder = input.dataset.folder;
+  var ref    = input.dataset.ref;
+  var tradeId = input.dataset.id;
+  uploadDoc(folder, ref, tradeId, input);
+}
+
+async function checkDoc(e, url) {
+  try {
+    const res = await fetch(url, {method:'HEAD'});
+    if(!res.ok) { e.preventDefault(); showToast('No file uploaded yet','red'); }
+  } catch(err) {}
+}
+
+async function uploadDoc(folder, ref, tradeId, input) {
+  const file = input.files[0];
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const uploadUrl = docUploadUrl(folder, ref, ext);
+  showToast('Uploading '+folder+'...','blue');
+  try {
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhcnFnZHhpYm1semVxbHFiZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzY3MjIsImV4cCI6MjA5NDMxMjcyMn0.WsDhCTcn58by9Pa7tYNTBjS_LAHdACzOB4hAgTiHd74',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhcnFnZHhpYm1semVxbHFiZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzY3MjIsImV4cCI6MjA5NDMxMjcyMn0.WsDhCTcn58by9Pa7tYNTBjS_LAHdACzOB4hAgTiHd74',
+        'Content-Type': file.type||'application/octet-stream',
+        'x-upsert': 'true'
+      },
+      body: file
+    });
+    if(res.ok) {
+      // Store extension in trade so view link works
+      const t = trades.find(x=>x.id===tradeId);
+      if(t) { if(!t.docs) t.docs={}; t.docs[folder]=ext; await upsertTrade(t); }
+      showToast(folder.charAt(0).toUpperCase()+folder.slice(1)+' uploaded ✓','green');
+      renderTradesTable();
+    } else {
+      const err = await res.json().catch(()=>({}));
+      // Bucket not found = needs setup
+      if(res.status===404||res.status===400) {
+        showToast('Bucket not set up — see setup instructions','red');
+        showBucketSetup();
+      } else {
+        showToast('Upload failed: '+(err.message||res.status),'red');
+      }
+    }
+  } catch(e) { showToast('Upload error: '+e.message,'red'); }
+  input.value='';
+}
+
+function showBucketSetup() {
+  const msg = 
+    '📦 SUPABASE STORAGE SETUP NEEDED:\n\n' +
+    '1. Go to: supabase.com/dashboard/project/parqgdxibmlzeqlqbdyb/storage/buckets\n' +
+    '2. Click "New Bucket"\n' +
+    '3. Name: trade-docs\n' +
+    '4. Enable: Public bucket ✓\n' +
+    '5. Click Create\n\n' +
+    '6. Then go to Storage > Policies\n' +
+    '7. Click "New Policy" on trade-docs\n' +
+    '8. Choose "Full access" template\n' +
+    '9. Click Save\n\n' +
+    'After setup, uploads will work!';
+  alert(msg);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+const CONTRACTS_BUCKET = 'contracts';
+const STORAGE_URL = 'https://parqgdxibmlzeqlqbdyb.supabase.co/storage/v1/object/public/' + CONTRACTS_BUCKET + '/';
+const STORAGE_UPLOAD_URL = 'https://parqgdxibmlzeqlqbdyb.supabase.co/storage/v1/object/' + CONTRACTS_BUCKET + '/';
+
+// Check if contract exists and return link HTML
+function contractLink(t) {
+  if(!t.ref) return '<span style="color:var(--text3);font-size:11px">—</span>';
+  const url = STORAGE_URL + encodeURIComponent(t.ref) + '.pdf';
+  return '<div style="display:flex;flex-direction:column;gap:4px;align-items:center">' +
+    '<a href="' + url + '" target="_blank" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;" '+
+      'onclick="checkContract(event,\'' + url + '\')">📄 View</a>' +
+    '<label class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;cursor:pointer;">'+
+      '⬆ Upload<input type="file" accept=".pdf,.doc,.docx,.xlsx" style="display:none" '+
+        'onchange="uploadContract(\'' + t.ref + '\',this)"></label>' +
+    '</div>';
+}
+
+async function checkContract(e, url) {
+  // Verify file exists before opening
+  try {
+    const res = await fetch(url, {method:'HEAD'});
+    if(!res.ok) { e.preventDefault(); showToast('No contract uploaded yet for this trade','red'); }
+  } catch(err) { /* let browser handle */ }
+}
+
+async function uploadContract(ref, input) {
+  const file = input.files[0];
+  if(!file) return;
+  showToast('Uploading...', 'blue');
+  
+  const fileName = ref + '.' + file.name.split('.').pop();
+  const uploadUrl = STORAGE_UPLOAD_URL + encodeURIComponent(fileName);
+  
+  try {
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhcnFnZHhpYm1semVxbHFiZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MzY3MjIsImV4cCI6MjA5NDMxMjcyMn0.WsDhCTcn58by9Pa7tYNTBjS_LAHdACzOB4hAgTiHd74',
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-upsert': 'true'
+      },
+      body: file
+    });
+    
+    if(res.ok) {
+      showToast('Contract uploaded for ' + ref + ' ✓', 'green');
+      renderTradesTable(); // refresh to show updated link
+    } else {
+      const err = await res.json().catch(()=>({}));
+      showToast('Upload failed: ' + (err.message || res.status), 'red');
+    }
+  } catch(e) {
+    showToast('Upload error: ' + e.message, 'red');
+  }
+  input.value = '';
 }
 
 function renderTradesTable() {
@@ -1463,7 +1679,8 @@ function renderTradesTable() {
     '<th>Year</th><th>Laycan</th><th>Ref</th>'+
     '<th>Seller</th><th>Buyer</th><th>Vessel</th><th>Origin</th>'+
     '<th>Spec</th><th>Qty (MT)</th><th>Buy</th><th>Sell</th>'+
-    '<th>BL Date</th><th>Net P&L</th><th>Status</th><th></th>'+
+    '<th>BL Date</th><th>Net P&L</th><th>Status</th>'+
+    '<th style="min-width:130px">Documents</th><th>Remarks</th><th></th>'+
     '</tr></thead>';
   const rows=sorted.map(function(t,n){
     const p=calcPnL(t);
@@ -1488,6 +1705,12 @@ function renderTradesTable() {
       '<td class="mono" style="font-size:12px">'+(t.blDate||'—')+'</td>'+
       '<td class="mono '+cc(p.netPnL)+'">'+sign(p.netPnL)+fmt(p.netPnL)+'</td>'+
       '<td>'+badgeStatus(t.status)+'</td>'+
+      '<td style="text-align:center">'+contractLink(t)+'</td>'+
+      '<td style="min-width:150px;max-width:200px">'+
+        '<textarea onchange="saveRemark(&quot;'+t.id+'&quot;,this.value)" '+
+          'style="width:100%;min-height:36px;resize:vertical;font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;color:var(--text);padding:4px 6px;font-family:inherit" '+
+          'placeholder="Add remark...">'+escapeHtml(t.remarks||'')+'</textarea>'+
+      '</td>'+
       '<td><div style="display:flex;gap:6px">'+
         '<button class="btn btn-ghost btn-sm" onclick="editTrade(&quot;'+t.id+'&quot;)">Edit</button>'+
         '<button class="btn btn-danger btn-sm" onclick="deleteTrade(&quot;'+t.id+'&quot;)">Del</button>'+
@@ -3227,6 +3450,119 @@ var iciData=(function(){
   return stored;
 })();
 function saveICI(){localStorage.setItem('kt_ici_data',JSON.stringify(iciData));saveToSupabase('ici_data',iciData);}
+
+// ═══════════════════════════════════════════════════════════════
+// ICI PASTE & IMPORT — parses free-form email/report text
+// ═══════════════════════════════════════════════════════════════
+function iciPasteImport(){
+  var text = document.getElementById('ici-paste-box').value;
+  if(!text.trim()){showToast('Please paste some text first','red');return;}
+
+  var result = {ici1:null, ici2:null, ici3:null, ici4:null, ici5:null, date:null};
+
+  // ── Parse date ────────────────────────────────────────────────
+  // Matches: "08 May 2026", "May 8, 2026", "2026-05-08", "8/5/2026", "05/08/2026"
+  var months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+
+  var datePatterns = [
+    // DD Mon YYYY or D Mon YYYY
+    /(\d{1,2})\s+([A-Za-z]{3,9})\s+(20\d{2})/,
+    // Mon DD, YYYY
+    /([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(20\d{2})/,
+    // YYYY-MM-DD
+    /(20\d{2})-(\d{2})-(\d{2})/,
+    // DD/MM/YYYY or MM/DD/YYYY
+    /(\d{1,2})\/(\d{1,2})\/(20\d{2})/,
+  ];
+
+  for(var pi=0; pi<datePatterns.length; pi++){
+    var dm = text.match(datePatterns[pi]);
+    if(dm){
+      if(pi===0){ // DD Mon YYYY
+        var mo=months[dm[2].toLowerCase().slice(0,3)];
+        if(mo) result.date = dm[3]+'-'+mo+'-'+dm[1].padStart(2,'0');
+      } else if(pi===1){ // Mon DD YYYY
+        var mo=months[dm[1].toLowerCase().slice(0,3)];
+        if(mo) result.date = dm[3]+'-'+mo+'-'+dm[2].padStart(2,'0');
+      } else if(pi===2){ // YYYY-MM-DD
+        result.date = dm[1]+'-'+dm[2]+'-'+dm[3];
+      } else if(pi===3){ // DD/MM/YYYY
+        result.date = dm[3]+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0');
+      }
+      if(result.date) break;
+    }
+  }
+
+  // ── Parse ICI values ──────────────────────────────────────────
+  // Strategy: look for numbers associated with ICI 1-5 or 6500/5800/5000/4200/3400 GAR
+  var lines = text.split('\n');
+
+  lines.forEach(function(line){
+    var num = line.match(/[\d,]+\.?\d*/g);
+    var prices = (num||[]).map(function(n){return parseFloat(n.replace(/,/g,''));})
+                          .filter(function(n){return n>20 && n<400;}); // valid price range
+    if(!prices.length) return;
+    var price = prices[prices.length-1]; // take last number on line (usually the value)
+    var l = line.toLowerCase();
+
+    // Match by ICI number
+    if(/ici[\s\-_]*1\b|ici[\s\-_]*i\b|6500|6,500/.test(l) && !result.ici1) result.ici1=price;
+    else if(/ici[\s\-_]*2\b|5800|5,800/.test(l) && !result.ici2) result.ici2=price;
+    else if(/ici[\s\-_]*3\b|5000|5,000/.test(l) && !result.ici3) result.ici3=price;
+    else if(/ici[\s\-_]*4\b|4200|4,200/.test(l) && !result.ici4) result.ici4=price;
+    else if(/ici[\s\-_]*5\b|3400|3,400/.test(l) && !result.ici5) result.ici5=price;
+  });
+
+  // ── Fallback: if 5 numbers found in sequence, assign in order ─
+  if(!result.ici1 && !result.ici2 && !result.ici3 && !result.ici4 && !result.ici5){
+    var allPrices = [];
+    text.replace(/[\d,]+\.?\d*/g, function(n){
+      var v=parseFloat(n.replace(/,/g,''));
+      if(v>20 && v<400) allPrices.push(v);
+    });
+    if(allPrices.length>=5){
+      result.ici1=allPrices[0]; result.ici2=allPrices[1]; result.ici3=allPrices[2];
+      result.ici4=allPrices[3]; result.ici5=allPrices[4];
+    }
+  }
+
+  // ── Show result preview ───────────────────────────────────────
+  var resEl = document.getElementById('ici-parse-result');
+  var found = [result.ici1,result.ici2,result.ici3,result.ici4,result.ici5].filter(Boolean).length;
+
+  if(found===0 && !result.date){
+    resEl.style.display='block';
+    resEl.innerHTML='<div style="color:#f85149;padding:10px;background:rgba(248,81,73,.1);border-radius:6px">❌ Could not parse any values. Try copying more of the email including the ICI numbers and date.</div>';
+    return;
+  }
+
+  // Fill the manual form fields
+  var sv=function(id,val){var el=document.getElementById(id);if(el&&val!=null)el.value=val;};
+  if(result.date) sv('ici-date', result.date);
+  if(result.ici1) sv('ici-val-1', result.ici1.toFixed(2));
+  if(result.ici2) sv('ici-val-2', result.ici2.toFixed(2));
+  if(result.ici3) sv('ici-val-3', result.ici3.toFixed(2));
+  if(result.ici4) sv('ici-val-4', result.ici4.toFixed(2));
+  if(result.ici5) sv('ici-val-5', result.ici5.toFixed(2));
+  sv('ici-source', 'ICI Report (auto-imported)');
+
+  // Show summary
+  resEl.style.display='block';
+  resEl.innerHTML='<div style="background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);border-radius:6px;padding:10px 14px">'+
+    '<div style="font-weight:600;color:#3fb950;margin-bottom:6px">✓ Parsed '+found+'/5 values' + (result.date?' + date':'') + ' — review below and click Save</div>'+
+    '<div style="font-size:12px;font-family:monospace;line-height:1.8;color:var(--text2)">'+
+    'Date: '+(result.date||'<span style="color:#f85149">not found — please enter manually</span>')+'<br>'+
+    'ICI 1: '+(result.ici1!=null?'<span style="color:#ffa000">'+result.ici1.toFixed(2)+'</span>':'<span style="color:#f85149">—</span>')+'<br>'+
+    'ICI 2: '+(result.ici2!=null?'<span style="color:#58a6ff">'+result.ici2.toFixed(2)+'</span>':'<span style="color:#f85149">—</span>')+'<br>'+
+    'ICI 3: '+(result.ici3!=null?'<span style="color:#3fb950">'+result.ici3.toFixed(2)+'</span>':'<span style="color:#f85149">—</span>')+'<br>'+
+    'ICI 4: '+(result.ici4!=null?'<span style="color:#bc8cff">'+result.ici4.toFixed(2)+'</span>':'<span style="color:#f85149">—</span>')+'<br>'+
+    'ICI 5: '+(result.ici5!=null?'<span style="color:#39d0c8">'+result.ici5.toFixed(2)+'</span>':'<span style="color:#f85149">—</span>')+
+    '</div></div>';
+
+  showToast('Values filled in form — check and click Save ICI Values','green');
+}
+
 function iciSave(){
   var g=function(id){return document.getElementById(id)&&document.getElementById(id).value.trim()||'';};
   var n=function(id){var v=g(id);return v===''?null:+v;};
@@ -3596,47 +3932,7 @@ function invGetData(){
   };
 }
 
-function invBuildHTML(d){
-  var tdStyle='border:1px solid #333;padding:7px;vertical-align:top';
-  var thStyle='border:1px solid #333;padding:7px;vertical-align:top;font-weight:bold;background:#f5f5f5';
-  function fmtNum(n){return n.toLocaleString('en-US',{minimumFractionDigits:2});}
-  var buyerAddr=d.buyerAddr?d.buyerAddr.split('\n').join('<br>'):'';
-  var sellerAddr=d.sellerAddr?d.sellerAddr.split('\n').join('<br>'):'';
-  var adjClause=d.adjClause?d.adjClause.split('\n').join('<br>'):'';
-  return '<div style="font-family:Arial,sans-serif;font-size:11px;color:#000;line-height:1.6">'
-    +'<div style="text-align:center;font-size:16px;font-weight:bold;text-decoration:underline;margin-bottom:16px">COMMERCIAL INVOICE</div>'
-    +'<table style="width:100%;border-collapse:collapse;margin-bottom:10px"><tr>'
-    +'<td style="'+tdStyle+';width:50%"><b>Buyer:</b><br><strong>'+d.buyer+'</strong>'+(buyerAddr?'<br>'+buyerAddr:'')+'</td>'
-    +'<td style="'+tdStyle+';width:50%"><b>Seller:</b><br>'+d.seller+(sellerAddr?'<br>'+sellerAddr:'')+'<br><br><b>Invoice No:</b> '+d.invNum+'<br><b>Invoice Date:</b> '+d.invDate+'</td>'
-    +'</tr></table>'
-    +'<table style="width:100%;border-collapse:collapse;margin-bottom:10px">'
-    +'<tr><td style="'+tdStyle+'"><b>LC NUMBER AND DATE:</b> '+d.lc+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>BL NUMBER:</b> '+d.blNum+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>NAME OF VESSEL:</b> '+d.vessel+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>IMO NO.:</b> '+d.imo+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>PORT OF LOADING:</b> '+d.loadPort+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>PORT OF DISCHARGE:</b> '+d.dischPort+'</td></tr>'
-    +'<tr><td style="'+tdStyle+'"><b>DATE OF SHIPMENT:</b> '+d.shipDate+'</td></tr>'
-    +'</table>'
-    +'<div style="font-weight:bold;margin-bottom:6px">DESCRIPTION OF GOODS</div>'
-    +'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
-    +'<tr><td style="'+thStyle+';width:28%">DESCRIPTION</td><td style="'+tdStyle+'">'+(d.contrQty?'+'+Number(d.contrQty).toLocaleString('en-US'):'')+' METRIC TONS +/- '+d.tol+' OF '+(d.coalDesc||d.origin+' STEAM COAL')+' AT USD '+d.base.toFixed(2)+' MT FOB '+d.loadPort+' BASIS '+d.basisLabel+' '+d.contrCV+' KCAL/KG</td></tr>'
-    +'<tr><td style="'+thStyle+'">ORIGIN</td><td style="'+tdStyle+'">'+d.origin+'</td></tr>'
-    +'<tr><td style="'+thStyle+'">BL QUANTITY</td><td style="'+tdStyle+'">'+d.blQty.toLocaleString('en-US')+' MT</td></tr>'
-    +'<tr><td style="'+thStyle+'">FOB PRICE</td><td style="'+tdStyle+'">USD '+d.base.toFixed(2)+' PER MT</td></tr>'
-    +'<tr><td style="'+thStyle+'">CV BASIS</td><td style="'+tdStyle+'">'+d.basisLabel+' '+d.contrCV+' KCAL/KG</td></tr>'
-    +'</table>'
-    +(d.hasCVAdj?'<div style="margin-bottom:4px"><b>FOB PRICE ADJUSTMENT:</b></div><div style="margin-bottom:10px">'+adjClause+'<br><br><b>ADJUSTED UNIT PRICE = '+d.base.toFixed(2)+' X '+d.actualCV+'/'+d.contrCV+' = '+d.adj.toFixed(2)+'</b></div>':'')
-    +'<div style="font-weight:bold;margin-bottom:6px">TOTAL INVOICE VALUE</div>'
-    +'<div>BL WEIGHT: '+d.blQty.toLocaleString('en-US')+' MT</div>'
-    +'<div>'+(d.hasCVAdj?'ADJUSTED ':'')+'FOB PRICE: USD '+d.adj.toFixed(2)+' PER MT</div>'
-    +'<div style="font-weight:bold;margin:6px 0">TOTAL VALUE: USD '+fmtNum(d.total)+'</div>'
-    +'<div style="margin-bottom:14px">IN WORDS: '+d.totalWords+'</div>'
-    +'<div style="font-weight:bold;margin-bottom:4px">BANK DETAILS</div>'
-    +'<div>BENEFICIARY: '+d.bene+'</div><div>BANK: '+d.bank+'</div><div>BRANCH: '+d.branch+'</div>'
-    +'<div>ACCOUNT: '+d.acc+'</div><div>IBAN: '+d.iban+'</div><div>SWIFT: '+d.swift+'</div>'
-    +'<div style="margin-top:24px"><b>Authorized Signatory</b><br>For and on behalf of KEYSTONE COMMODITIES FZCO<br><br>_________________________</div></div>';
-}
+
 
 function invPreview(){
   var id=document.getElementById('inv-trade-select')&&document.getElementById('inv-trade-select').value;
@@ -3646,18 +3942,7 @@ function invPreview(){
   if(prev)prev.innerHTML=invBuildHTML(invGetData());
 }
 
-function invGenerate(){
-  var d=invGetData();
-  if(!d.blQty||!d.base){showToast('Enter BL Quantity and Base Price first','red');return;}
-  var logoEl=document.getElementById('ks-logo');var LOGO_SRC=logoEl?logoEl.src:'';
-  var HEADER='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:2px solid #231F20;margin-bottom:24px"><div style="display:flex;align-items:center;gap:14px"><img src="'+LOGO_SRC+'" style="height:52px"><div><div style="font-size:18px;font-weight:bold;color:#231F20;letter-spacing:2px">KEYSTONE COMMODITIES</div><div style="font-size:10px;color:#555">ONE JLT 05-21, JUMEIRAH LAKE TOWERS, DUBAI, UAE</div></div></div><div style="text-align:right;font-size:10px;color:#555;line-height:1.8"><div>+971-553-621216</div><div>info@keystonecmt.com</div></div></div>';
-  var FOOTER='<div style="margin-top:40px;padding-top:14px;border-top:1px solid #231F20;text-align:right;font-size:10px;color:#333"><b>Keystone Commodities</b><br>+971-553-621216 | info@keystonecmt.com</div>';
-  var css='body{font-family:Arial,sans-serif;font-size:11.5px;margin:0;color:#000;padding:30px 40px;max-width:820px;margin:0 auto} table{border-collapse:collapse;width:100%} td{border:1px solid #333;padding:7px;vertical-align:top} @media print{body{padding:20px 30px} button{display:none!important}} @page{margin:15mm}';
-  var content='<!DOCTYPE html><html><head><title>'+d.invNum+'</title><style>'+css+'</style></head><body><button onclick="window.print()" style="margin-bottom:20px;padding:8px 24px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;display:block">Print / Save as PDF</button>'+HEADER+invBuildHTML(d)+FOOTER+'<\/body><\/html>';
-  var w=window.open('','_blank');
-  w.document.write(content);
-  w.document.close();
-}
+
 
 function invWords(n){
   var ones=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
@@ -3677,28 +3962,9 @@ function invPreview(){
   if(prev)prev.innerHTML=invBuildHTML(invGetData());
 }
 
-function invGenerate(){
-  var d=invGetData();
-  if(!d.blQty||!d.base){showToast('Enter BL Quantity and Base Price first','red');return;}
-  var logoEl=document.getElementById('ks-logo');var LOGO_SRC=logoEl?logoEl.src:'';
-  var HEADER='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:2px solid #231F20;margin-bottom:24px"><div style="display:flex;align-items:center;gap:14px"><img src="'+LOGO_SRC+'" style="height:52px"><div><div style="font-size:18px;font-weight:bold;color:#231F20;letter-spacing:2px">KEYSTONE COMMODITIES</div><div style="font-size:10px;color:#555">ONE JLT 05-21, JUMEIRAH LAKE TOWERS, DUBAI, UAE</div></div></div><div style="text-align:right;font-size:10px;color:#555;line-height:1.8"><div>+971-553-621216</div><div>info@keystonecmt.com</div></div></div>';
-  var FOOTER='<div style="margin-top:40px;padding-top:14px;border-top:1px solid #231F20;text-align:right;font-size:10px;color:#333"><b>Keystone Commodities</b><br>+971-553-621216 | info@keystonecmt.com</div>';
-  var css='body{font-family:Arial,sans-serif;font-size:11.5px;margin:0;color:#000;padding:30px 40px;max-width:820px;margin:0 auto} table{border-collapse:collapse;width:100%} td{border:1px solid #333;padding:7px;vertical-align:top} @media print{body{padding:20px 30px} button{display:none!important}} @page{margin:15mm}';
-  var content='<!DOCTYPE html><html><head><title>'+d.invNum+'</title><style>'+css+'</style></head><body><button onclick="window.print()" style="margin-bottom:20px;padding:8px 24px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;display:block">Print / Save as PDF</button>'+HEADER+invBuildHTML(d)+FOOTER+'<\/body><\/html>';
-  var w=window.open('','_blank');
-  w.document.write(content);
-  w.document.close();
-}
 
-function invWords(n){
-  var ones=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
-  var tens=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
-  function say(n){if(!n)return'';if(n<20)return ones[n]+' ';if(n<100)return tens[Math.floor(n/10)]+' '+(n%10?ones[n%10]+' ':'');return ones[Math.floor(n/100)]+' hundred '+(n%100?say(n%100):'');}
-  var d=Math.floor(n),c=Math.round((n-d)*100),r='us dollars ';
-  if(d>=1000000)r+=say(Math.floor(d/1000000))+'million ';
-  if(d>=1000)r+=say(Math.floor((d%1000000)/1000))+'thousand ';
-  r+=say(d%1000).trim();if(c)r+=' and '+say(c).trim()+' cents';return r;
-}
+
+
 
 // OPS_MILESTONES already defined above
 function getOpsDate(ops,key){var o=ops&&ops[key];return o&&(o.manualDate||o.autoDate)||null;}
@@ -3964,28 +4230,9 @@ function invPreview(){
   if(prev)prev.innerHTML=invBuildHTML(invGetData());
 }
 
-function invGenerate(){
-  var d=invGetData();
-  if(!d.blQty||!d.base){showToast('Enter BL Quantity and Base Price first','red');return;}
-  var logoEl=document.getElementById('ks-logo');var LOGO_SRC=logoEl?logoEl.src:'';
-  var HEADER='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:2px solid #231F20;margin-bottom:24px"><div style="display:flex;align-items:center;gap:14px"><img src="'+LOGO_SRC+'" style="height:52px"><div><div style="font-size:18px;font-weight:bold;color:#231F20;letter-spacing:2px">KEYSTONE COMMODITIES</div><div style="font-size:10px;color:#555">ONE JLT 05-21, JUMEIRAH LAKE TOWERS, DUBAI, UAE</div></div></div><div style="text-align:right;font-size:10px;color:#555;line-height:1.8"><div>+971-553-621216</div><div>info@keystonecmt.com</div></div></div>';
-  var FOOTER='<div style="margin-top:40px;padding-top:14px;border-top:1px solid #231F20;text-align:right;font-size:10px;color:#333"><b>Keystone Commodities</b><br>+971-553-621216 | info@keystonecmt.com</div>';
-  var css='body{font-family:Arial,sans-serif;font-size:11.5px;margin:0;color:#000;padding:30px 40px;max-width:820px;margin:0 auto} table{border-collapse:collapse;width:100%} td{border:1px solid #333;padding:7px;vertical-align:top} @media print{body{padding:20px 30px} button{display:none!important}} @page{margin:15mm}';
-  var content='<!DOCTYPE html><html><head><title>'+d.invNum+'</title><style>'+css+'</style></head><body><button onclick="window.print()" style="margin-bottom:20px;padding:8px 24px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;display:block">Print / Save as PDF</button>'+HEADER+invBuildHTML(d)+FOOTER+'<\/body><\/html>';
-  var w=window.open('','_blank');
-  w.document.write(content);
-  w.document.close();
-}
 
-function invWords(n){
-  var ones=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
-  var tens=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
-  function say(n){if(!n)return'';if(n<20)return ones[n]+' ';if(n<100)return tens[Math.floor(n/10)]+' '+(n%10?ones[n%10]+' ':'');return ones[Math.floor(n/100)]+' hundred '+(n%100?say(n%100):'');}
-  var d=Math.floor(n),c=Math.round((n-d)*100),r='us dollars ';
-  if(d>=1000000)r+=say(Math.floor(d/1000000))+'million ';
-  if(d>=1000)r+=say(Math.floor((d%1000000)/1000))+'thousand ';
-  r+=say(d%1000).trim();if(c)r+=' and '+say(c).trim()+' cents';return r;
-}
+
+
 
 function invPreview(){
   var id=document.getElementById('inv-trade-select')&&document.getElementById('inv-trade-select').value;
@@ -4008,15 +4255,15 @@ function invGenerate(){
   w.document.close();
 }
 
-function invWords(n){
-  var ones=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
-  var tens=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
-  function say(n){if(!n)return'';if(n<20)return ones[n]+' ';if(n<100)return tens[Math.floor(n/10)]+' '+(n%10?ones[n%10]+' ':'');return ones[Math.floor(n/100)]+' hundred '+(n%100?say(n%100):'');}
-  var d=Math.floor(n),c=Math.round((n-d)*100),r='us dollars ';
-  if(d>=1000000)r+=say(Math.floor(d/1000000))+'million ';
-  if(d>=1000)r+=say(Math.floor((d%1000000)/1000))+'thousand ';
-  r+=say(d%1000).trim();if(c)r+=' and '+say(c).trim()+' cents';return r;
-}
+
+  var content='<!DOCTYPE html><html><head><title>'+d.invNum+'</title><style>'+css+'</style></head><body><button onclick="window.print()" style="margin-bottom:20px;padding:8px 24px;background:#1a1a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;display:block">Print / Save as PDF</button>'+HEADER+invBuildHTML(d)+FOOTER+'<\/body><\/html>';
+  var w=window.open('','_blank');
+  w.document.write(content);
+  w.document.close();
+
+
+
+
 
 
 
